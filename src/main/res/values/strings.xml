@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HTTPS Rewriter</string>
+	
+	<string name="is_on">HTTPS Rewrite active</string>
+	<string name="verbose">Verbose</string>
+	<string name="whitelist_pkg">Whitelist packages</string>
+	<string name="set_https_proxy">NO_PROXY for HTTPS</string>
+	<string name="https_proxy">HTTPS Proxy host:port</string>
+	<string name="expr">URL Regexp</string>
+</resources>

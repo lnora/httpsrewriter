@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+    <CheckBoxPreference
+        android:key="is_on"
+        android:title="@string/is_on"
+        android:defaultValue="true" />
+    <CheckBoxPreference
+        android:key="verbose"
+        android:title="@string/verbose"
+        android:defaultValue="false" />
+    <EditTextPreference
+        android:key="expr"
+        android:title="@string/expr"
+		android:defaultValue=".*\.(?:jpg|gif|png|mp4)$"/>
+    <EditTextPreference
+        android:key="whitelist_pkg"
+        android:title="@string/whitelist_pkg" />
+    <CheckBoxPreference
+        android:key="set_https_proxy"
+        android:title="@string/set_https_proxy"
+        android:defaultValue="false" />		
+    <EditTextPreference
+        android:key="https_proxy"
+        android:title="@string/https_proxy" />				
+</PreferenceScreen>
