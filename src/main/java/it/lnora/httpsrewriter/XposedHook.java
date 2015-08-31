@@ -7,35 +7,36 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.app.Application;
 import android.os.Handler;
 import android.os.Looper;
-import de.robv.android.xposed.*;
 
+import java.io.File;
 import java.net.*;
+import java.net.Proxy.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.Scanner;
 
-import de.robv.android.xposed.IXposedHookZygoteInit;
-import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.*;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
-import de.robv.android.xposed.XSharedPreferences;
-
-import static de.robv.android.xposed.XposedHelpers.callMethod;
 
 import org.apache.http.HttpHost;
 
 public class XposedHook implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 	private static XSharedPreferences pref;
 	public static final String MY_PACKAGE_NAME = XposedHook.class.getPackage().getName();
-	String expr = "";
+	String expr;
 	Boolean verbose = false;
-	Boolean directHttps = false;
+	Boolean directHttps = false;	
 
 	@Override
 	public void initZygote(StartupParam startupParam) {
@@ -45,69 +46,50 @@ public class XposedHook implements IXposedHookZygoteInit, IXposedHookLoadPackage
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 		pref.reload();
+
+		if (!pref.getBoolean("is_on", true)) {
+			return;
+		}
 		
 		verbose = pref.getBoolean("verbose", false);
 		directHttps = pref.getBoolean("set_https_proxy", false);
 		
-		if (!pref.getBoolean("is_on", true)) {
-			return;
-		}
-				
+		//mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+		
+		/*if (directHttps) {
+			String httpProxyHost = System.getProperty("http.proxyHost", "");
+			String proxyHost = System.getProperty("proxyHost", "");
+			
+			if (httpProxyHost.equals("") && !proxyHost.equals("")) {
+				System.setProperty("http.proxyHost", proxyHost);
+				System.setProperty("http.proxyPort", System.getProperty("proxyPort"));
+			}
+			
+			System.setProperty("proxyHost", "");
+			
+			String httpsProxyHost = System.getProperty("https.proxyHost");
+			System.setProperty("https.proxyHost","");
+			if (verbose) {
+				XposedBridge.log(String.format("https=%s,http=%s,proxy=%s", httpsProxyHost, httpProxyHost, proxyHost));
+			}
+		}*/
+
 		String tmpList = pref.getString("whitelist_pkg", null);
 		
 		if (tmpList != null && tmpList.contains(lpparam.packageName)) {
-			XposedBridge.log(String.format("%s in whitelist", lpparam.packageName));
+			XposedBridge.log(lpparam.packageName + " in whitelist");
 			return;
 		}
 		
 		expr = pref.getString("expr", ".*\\.(?:jpg|gif|png|mp4)$");	
-
-		final Class<?> proxy = findClass("android.net.Proxy", lpparam.classLoader);
-		XposedBridge.hookAllMethods(proxy, "getProxy", new XC_MethodHook() {
-			@Override
-			protected void afterHookedMethod(MethodHookParam param) throws Throwable {				
-				String url = (String)param.args[1];
-				if (verbose) {
-					XposedBridge.log(String.format("getProxy(%s)", url));
-				}
-			}
-		});		
 		
-		final Class<?> proxyProperties = findClass("android.net.ProxyProperties", lpparam.classLoader);
-		XposedBridge.hookAllMethods(proxyProperties, "isExcluded", new XC_MethodHook() {
-			@Override
-			protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				Boolean res = (Boolean)param.getResult();
-				
-				if (res) {
-					return;
-				}
-								
-				String url = (String)param.args[0];
-				if (verbose) {
-					XposedBridge.log(String.format("isExcluded(%s)", url));
-				}
-			}
-		});
-
 		final Class<?> url = findClass("java.net.URL", lpparam.classLoader);
 		XposedBridge.hookAllMethods(url, "openConnection", new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {							
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {											
 				URL url = (URL)param.thisObject;
 				if (verbose) {
-					XposedBridge.log(String.format("openConnection(%s)", url.toString()));
-				}
-				
-				if (param.args.length != 1 || param.args[0].getClass() != Proxy.class) {
-					return;
-				}				
-				
-				if (directHttps && url.getProtocol().equals("https")) {
-					param.args[0] = Proxy.NO_PROXY;
-					if (verbose) {
-						XposedBridge.log(String.format("%s NO_PROXY", url.toString()));
-					}
+					XposedBridge.log("openConnection(" + url + ")");
 				}
 			}
 		});
@@ -116,64 +98,52 @@ public class XposedHook implements IXposedHookZygoteInit, IXposedHookLoadPackage
 		XposedBridge.hookAllMethods(proxySelector, "select", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-				if (directHttps) {
-					URI uri = (URI)param.args[0];
-					if (verbose) {
-						XposedBridge.log(String.format("select(%s)", uri.toString()));
-					}
-					
-					if (uri.getScheme().equalsIgnoreCase("https")) {
-						List<Proxy> proxyList = Collections.singletonList(Proxy.NO_PROXY);					
-						param.setResult(proxyList);
-						if (verbose) {
-							XposedBridge.log(String.format("%s NO_PROXY", uri.toString()));
-						}
-					}
+				URI uri = (URI)param.args[0];
+				List<Proxy> lProxy = (List<Proxy>)param.getResult();
+				Proxy proxy = lProxy.get(0);				
+				
+				if (directHttps && uri.getScheme().contains("https") && proxy.type() != Proxy.Type.DIRECT) {
+					param.setResult(Collections.singletonList(Proxy.NO_PROXY));
+					proxy = Proxy.NO_PROXY;
 				}
-			}
+				
+				if (verbose) {
+					XposedBridge.log("select(" + uri + ")");
+					XposedBridge.log("selectProxy(" + uri + ")=" + proxy);
+				}				
+			}			
 		});
 		
-		try {
-			final Class<?> httpsHandler = findClass("com.android.okhttp.HttpsHandler", lpparam.classLoader);
-			XposedBridge.hookAllMethods(httpsHandler, "newOkUrlFactory", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-					if (directHttps) {
-						param.args[0] = Proxy.NO_PROXY;
-						if (verbose) {
-							XposedBridge.log("newOkUrlFactory()");
-						}
-					}				
-				}
-			});
-		} catch (XposedHelpers.ClassNotFoundError e) {
-        } catch (NoSuchMethodError e){
-        }			
-
-		try {
-			final Class<?> urlRequestContext = findClass("org.chromium.net.UrlRequestContext", lpparam.classLoader);
-			XposedBridge.hookAllMethods(urlRequestContext, "createRequest", new XC_MethodHook() {
-				@Override
-				protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+		final Class<?> proxyProperties = XposedHelpers.findClass("android.net.ProxyProperties", lpparam.classLoader);
+        final Class<?> mediaPlayer = findClass("android.media.MediaPlayer", lpparam.classLoader);
+        XposedBridge.hookAllMethods(mediaPlayer, "setDataSource", new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+				MediaPlayer mp = (MediaPlayer)param.thisObject;
+				//HACK
+				
+				Object props = XposedHelpers.newInstance(proxyProperties, "localhost", 8123, "");
+				XposedHelpers.callMethod(mp, "updateProxyConfig", props);				
+				
+                if (param.args.length > 1 || param.args[0].getClass() == String.class) {
 					String url = (String)param.args[0];
 					try {
-						URI newUrl = rewriteHttpsUriToHttpUri(new URI(url), "createRequest");
+						URI newUrl = rewriteHttpsUriToHttpUri(new URI(url), "setDataSource");
+						
+						if (verbose) {
+							XposedBridge.log("setDataSource(" + uri + ")->"+newUrl);
+						}
+						
 						if (newUrl != null) {
-							param.args[0] = (String)newUrl.toURL().toString();						
+							param.args[0] = newUrl.toURL().toString();
 						}
 					} catch (IllegalArgumentException e) {
 					} catch (MalformedURLException e) {					
 					} catch (URISyntaxException e) {}					
-
-					if (verbose) {
-						XposedBridge.log(String.format("createRequest(%s)", (String)param.args[0]));
-					}				
-				}
-			});
-        } catch (XposedHelpers.ClassNotFoundError e) {
-        } catch (NoSuchMethodError e){
-        }			
-
+                }
+            }
+        });		
+			
 		try {
 			final Class<?> cronetUrlRequest = findClass("org.chromium.net.CronetUrlRequest", lpparam.classLoader);
 			XposedBridge.hookAllConstructors(cronetUrlRequest, new XC_MethodHook() {
@@ -197,33 +167,6 @@ public class XposedHook implements IXposedHookZygoteInit, IXposedHookLoadPackage
         } catch (XposedHelpers.ClassNotFoundError e) {
         } catch (NoSuchMethodError e){
         }
-
-		/*try {
-			final Class<?> urlRequestContextConfig = findClass("org.chromium.net.UrlRequestContextConfig", lpparam.classLoader);
-			XposedBridge.hookAllConstructors(urlRequestContextConfig, new XC_MethodHook() {
-				@Override
-				protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-					Object config = param.thisObject;
-					
-					if 
-					
-					try {
-						URI newUrl = rewriteHttpsUriToHttpUri(new URI(url), "CronetUrlRequest");
-						if (newUrl != null) {
-							param.args[2] = (String)newUrl.toURL().toString();						
-						}
-					} catch (IllegalArgumentException e) {
-					} catch (MalformedURLException e) {					
-					} catch (URISyntaxException e) {}					
-
-					if (verbose) {
-						XposedBridge.log(String.format("CronetUrlRequest(%s)", (String)param.args[2]));
-					}				
-				}
-			});
-        } catch (XposedHelpers.ClassNotFoundError e) {
-        } catch (NoSuchMethodError e){
-        }*/		
 		
         final Class<?> httpUrlConnection = findClass("java.net.HttpURLConnection", lpparam.classLoader);
         XposedBridge.hookAllConstructors(httpUrlConnection, new XC_MethodHook() {
