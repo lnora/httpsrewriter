@@ -2,7 +2,6 @@ language: android
 jdk: oraclejdk7
 
 android:
-	components:
-		- build-tools-22.0.1
-		- android-22
-		
+  components:
+    - build-tools-22.0.1
+    - android-22
