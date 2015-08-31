@@ -131,7 +131,7 @@ public class XposedHook implements IXposedHookZygoteInit, IXposedHookLoadPackage
 						URI newUrl = rewriteHttpsUriToHttpUri(new URI(url), "setDataSource");
 						
 						if (verbose) {
-							XposedBridge.log("setDataSource(" + uri + ")->"+newUrl);
+							XposedBridge.log("setDataSource(" + url + ")->"+newUrl);
 						}
 						
 						if (newUrl != null) {
