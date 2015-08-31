@@ -1,0 +1,19 @@
+language: android
+jdk: oraclejdk7
+
+before_install:
+  - chmod +x gradlew
+
+android:
+  components:
+    - build-tools-22.0.1
+    - android-22
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "FHOG/Oy1fI9du5CceLsX9Okk5jGdqknFO8BAvZuwnDNiuhatCLCme8c53FTbeaPK0hvAfXBhsoIhohx9eJj9vaw1Fm6FARo8QCPoDTzXnNK0QDUJKm+qff2sV/m6Jz2Iq7T6UINhJRvZnHpkTdIxJrlcfxpgwx1VNwOMWl+dGcAfOORynZbcUiGndE8LzOqff/YpxgdoDYxHRUQ5xX3uHiTyLDhMW1iyw2B30+VM7DY5Iz76CHPDjFCn/l+Eqc2Y3cS4zH/Nu7AAtOWRDzZD4uRtizJlC2JZflB7CiDf04tnX7c1s49GVPBKbSWJsxJyOdl0B6AnZtothWFV4ZMlZEccyxBWmOJXQnMdwJ6qKkz2/YRPrIOCWq4Bhnn89fbQGQEmzyXH0M1affwWlYGSSMUDOKV27uWfvz+Ybt63z06LHx8foeeQ/XpVWUITj0OjgJ+qCnoye8XCxLhJSL+Z6MML/5iKluEg4ZWtU/2N0+qF93HSD0rgMAbelndU2KK5+wQJAU/NmqQByeUvH3TRSTJ+opZUcj35uziGLVjucsVh4FbHD+DVObj+6RhUn2Xj/R7enJfYsC/0uJGplQJK3F1U2+MKGCdyR7IX1QqTEWSWLcu0KEEsdhn8fXZUBAkYzd1CEh+ap/LNrOaTGH3iyi760Kh30XynY50fF//6f1E=" 
+  file: ${TRAVIS_BUILD_DIR}/build/outputs/apk/httpsrewriter-debug.apk
+  skip_cleanup: true
+  on:
+    tags: true
